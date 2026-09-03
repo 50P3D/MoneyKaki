@@ -20,11 +20,13 @@ what needs a backend.
 
 <table>
 <tr>
-<td width="33%"><img src="docs/screenshots/home-weijie.png" alt="Home screen, Wei Jie persona — on track, green theme" /><br/><sub><b>Home</b> — Wei Jie (on track)</sub></td>
+<td width="33%"><img src="docs/screenshots/home-weijie.png" alt="Home screen, Wei Jie persona — on track, green theme" /><br/><sub><b>Home</b> — Wei Jie, on-track (green) persona, goal card + pace nudge</sub></td>
+<td width="33%"><img src="docs/screenshots/ledger.png" alt="Commitment Ledger screen with the Sankey 'where it goes' diagram" /><br/><sub><b>Ledger</b> — 12-month headline, "where it goes" Sankey, recurring charges</sub></td>
+<td width="33%"><img src="docs/screenshots/kakis.png" alt="Kakis accountability screen with friend streaks and commitment pot" /><br/><sub><b>Kakis</b> — friend streaks, nudge, public commitment pot</sub></td>
 </tr>
 </table>
 
-*More screens on the way — Ledger's Sankey view, the Kakis tab, and Aisyah's amber "getting by" theme.*
+*Still missing: Aisyah's amber "getting by" theme, her CPF snapshot on Goal Detail, and the pace-risk warning modal — grab those from her profile (tap "Aisyah" on Home) if you want the full set.*
 
 ## Quick start
 
