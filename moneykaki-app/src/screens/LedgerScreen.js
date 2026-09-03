@@ -1,39 +1,82 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, SectionLabel } from '../components/Common';
-import { colors, radius } from '../theme/tokens';
-
-const CHARGES = [
-  { name: 'Netflix', yearly: 215.76, monthly: 17.98 },
-  { name: 'Grab BNPL', yearly: 720.0, monthly: 60.0 },
-  { name: 'Insurance', yearly: 2520.0, monthly: 210.0 },
-  { name: 'Telco plan', yearly: 540.0, monthly: 45.0 },
-];
-
-// heights (0-1) for a 12-day sample of the 30-day view, and which are deduction / payday days
-const CASHFLOW = [
-  { h: 0.3 }, { h: 0.2 }, { h: 0.6, type: 'deduct' }, { h: 0.15 },
-  { h: 0.25 }, { h: 0.7, type: 'deduct' }, { h: 0.2 }, { h: 1.0, type: 'payday' },
-  { h: 0.2 }, { h: 0.35 }, { h: 0.55, type: 'deduct' }, { h: 0.18 },
-];
+import { LinearGradient } from 'expo-linear-gradient';
+import { Card, SectionLabel, Pulse, GhostButton, FormSheet, ResourceTip } from '../components/Common';
+import SankeyFlow from '../components/SankeyFlow';
+import { colors, radius, type, categoryColors, categoryLabels } from '../theme/tokens';
+import { useApp, useProfile, useActiveGoal, useLedgerTotal, useCashflowBars } from '../state/AppState';
 
 export default function LedgerScreen() {
+  const { cancelCharge, addCharge } = useApp();
+  const profile = useProfile();
+  const activeGoal = useActiveGoal();
+  const ledgerTotal = useLedgerTotal();
+  const cashflow = useCashflowBars();
+  const multiplier = activeGoal ? (ledgerTotal / activeGoal.target).toFixed(1) : null;
+  const [addVisible, setAddVisible] = useState(false);
+  const hasBnpl = profile.ledger.charges.some((c) => /bnpl/i.test(c.name));
+  const categoryTotals = profile.ledger.charges.reduce((acc, c) => {
+    const key = c.category || 'subscription';
+    acc[key] = (acc[key] || 0) + c.monthly;
+    return acc;
+  }, {});
+  const categoryNodes = Object.keys(categoryTotals).map((key) => ({
+    key,
+    label: categoryLabels[key] || key,
+    value: categoryTotals[key],
+    color: categoryColors[key] || colors.inkSoft,
+  }));
+
+  const confirmCancel = (charge) => {
+    Alert.alert(
+      `Cancel ${charge.name}?`,
+      `$${charge.monthly.toFixed(2)}/mo will be redirected straight into ${activeGoal?.title ?? 'your goal'}.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Cancel & redirect',
+          style: 'destructive',
+          onPress: () => cancelCharge(charge.id, activeGoal.id),
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.greet}>Commitment Ledger</Text>
 
-        <View style={styles.headline}>
+        <LinearGradient colors={profile.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headline}>
           <Text style={styles.headlineLbl}>ALREADY COMMITTED, NEXT 12 MONTHS</Text>
-          <Text style={styles.headlineBig}>$4,820</Text>
-          <Text style={styles.headlineSub}>Before you add anything new</Text>
-        </View>
+          <Pulse dep={ledgerTotal}>
+            <Text style={styles.headlineBig}>${ledgerTotal.toFixed(0)}</Text>
+          </Pulse>
+          <Text style={styles.headlineSub}>
+            {multiplier
+              ? `That's ${multiplier}× your ${activeGoal.title} goal — before you add anything new`
+              : 'Before you add anything new'}
+          </Text>
+        </LinearGradient>
+
+        {categoryNodes.length > 0 ? (
+          <>
+            <SectionLabel>Where it goes</SectionLabel>
+            <Card style={styles.sankeyCard}>
+              <SankeyFlow
+                nodes={categoryNodes}
+                rootLabel="Committed"
+                rootSub={`$${(ledgerTotal / 12).toFixed(0)}/mo`}
+              />
+            </Card>
+          </>
+        ) : null}
 
         <SectionLabel>30-day cash flow vs payday</SectionLabel>
         <Card>
           <View style={styles.calStrip}>
-            {CASHFLOW.map((bar, i) => (
+            {cashflow.map((bar, i) => (
               <View
                 key={i}
                 style={[
@@ -58,26 +101,68 @@ export default function LedgerScreen() {
         </Card>
 
         <SectionLabel>Recurring charges</SectionLabel>
-        <Card style={{ paddingVertical: 4 }}>
-          {CHARGES.map((c, i) => (
-            <View
-              key={c.name}
-              style={[styles.chargeRow, i === CHARGES.length - 1 && { borderBottomWidth: 0 }]}
-            >
-              <View>
-                <Text style={styles.chargeName}>{c.name}</Text>
-                <Text style={styles.chargeSub}>${c.yearly.toFixed(2)} this year</Text>
+        {profile.ledger.charges.length === 0 ? (
+          <Card>
+            <Text style={styles.emptyText}>Nothing left to trim — every charge you've cancelled is now feeding a goal.</Text>
+          </Card>
+        ) : (
+          <Card style={{ paddingVertical: 4 }}>
+            {profile.ledger.charges.map((c, i) => (
+              <View
+                key={c.id}
+                style={[styles.chargeRow, i === profile.ledger.charges.length - 1 && { borderBottomWidth: 0 }]}
+              >
+                <View>
+                  <Text style={styles.chargeName}>{c.name}</Text>
+                  <Text style={styles.chargeSub}>${(c.monthly * 12).toFixed(2)} this year</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.chargeAmt}>${c.monthly.toFixed(2)}/mo</Text>
+                  <TouchableOpacity onPress={() => confirmCancel(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.cancelLink}>Cancel → pot</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.chargeAmt}>${c.monthly.toFixed(2)}/mo</Text>
-                <TouchableOpacity>
-                  <Text style={styles.cancelLink}>Cancel → pot</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </Card>
+            ))}
+          </Card>
+        )}
+
+        {hasBnpl ? (
+          <ResourceTip
+            source="🏛️ From MoneySense (MAS)"
+            text={'A national survey found 27% of Buy Now, Pay Later users ended up financially worse off, mostly from overspending.'}
+            ctaLabel="Read MoneySense's guide"
+            url="https://www.moneysense.gov.sg/3-traps-to-avoid-when-you-go-shopping/"
+          />
+        ) : null}
+
+        <GhostButton title="+ Add a recurring charge" onPress={() => setAddVisible(true)} />
       </ScrollView>
+
+      <FormSheet
+        visible={addVisible}
+        title="Add a recurring charge"
+        submitLabel="Add"
+        fields={[
+          { key: 'name', label: 'What is it?', placeholder: 'e.g. Spotify', autoFocus: true },
+          { key: 'monthly', label: 'Monthly cost ($)', placeholder: '15', keyboardType: 'numeric' },
+          {
+            key: 'category',
+            label: 'Category',
+            type: 'select',
+            options: [
+              { value: 'essential', label: 'Essential' },
+              { value: 'subscription', label: 'Subscription' },
+              { value: 'debt', label: 'Debt / BNPL' },
+            ],
+          },
+        ]}
+        onSubmit={(values) => {
+          addCharge(values.name, Number(values.monthly), values.category);
+          setAddVisible(false);
+        }}
+        onClose={() => setAddVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -85,26 +170,28 @@ export default function LedgerScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.sage },
   scroll: { padding: 18, paddingBottom: 100 },
-  greet: { fontSize: 19, fontWeight: '600', color: colors.ink, marginTop: 4 },
-  headline: { backgroundColor: colors.ink, borderRadius: radius.lg, padding: 18, marginTop: 14 },
-  headlineLbl: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
-  headlineBig: { fontSize: 28, fontWeight: '700', color: '#fff', marginTop: 4 },
-  headlineSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.55)', marginTop: 4 },
-  calStrip: { flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 40 },
+  greet: { ...type.h1, color: colors.ink, marginTop: 4 },
+  headline: { borderRadius: radius.lg, padding: 18, marginTop: 14 },
+  sankeyCard: { alignItems: 'center', paddingVertical: 14 },
+  headlineLbl: { ...type.micro, color: 'rgba(255,255,255,0.6)' },
+  headlineBig: { ...type.display, color: '#fff', marginTop: 4 },
+  headlineSub: { ...type.caption, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  calStrip: { flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 44 },
   calBar: { flex: 1, backgroundColor: colors.line, borderRadius: 3, minHeight: 4 },
-  calLegend: { flexDirection: 'row', gap: 16, marginTop: 8 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  calLegend: { flexDirection: 'row', gap: 16, marginTop: 10 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 2 },
-  legendText: { fontSize: 10, color: colors.textDim },
+  legendText: { ...type.caption, color: colors.textDim },
+  emptyText: { ...type.body, color: colors.textDim },
   chargeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  chargeName: { fontSize: 13, fontWeight: '600', color: colors.ink },
-  chargeSub: { fontSize: 10.5, color: colors.textDim, marginTop: 2 },
-  chargeAmt: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  cancelLink: { fontSize: 10, color: colors.coral, fontWeight: '700', marginTop: 2 },
+  chargeName: { ...type.subheading, color: colors.ink },
+  chargeSub: { ...type.micro, color: colors.textDim, marginTop: 2, fontWeight: '500' },
+  chargeAmt: { ...type.subheading, color: colors.ink },
+  cancelLink: { ...type.micro, color: colors.coral, marginTop: 4 },
 });
