@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card, SectionLabel, Pulse, GhostButton, FormSheet, ResourceTip } from '../components/Common';
-import SankeyFlow from '../components/SankeyFlow';
+import DonutChart, { DonutLegend } from '../components/DonutChart';
 import { colors, radius, type, categoryColors, categoryLabels } from '../theme/tokens';
 import { useApp, useProfile, useActiveGoal, useLedgerTotal, useCashflowBars } from '../state/AppState';
 
@@ -63,12 +63,20 @@ export default function LedgerScreen() {
         {categoryNodes.length > 0 ? (
           <>
             <SectionLabel>Where it goes</SectionLabel>
-            <Card style={styles.sankeyCard}>
-              <SankeyFlow
-                nodes={categoryNodes}
-                rootLabel="Committed"
-                rootSub={`$${(ledgerTotal / 12).toFixed(0)}/mo`}
-              />
+            <Card>
+              <View style={styles.donutRow}>
+                <DonutChart
+                  segments={categoryNodes}
+                  centerLabel={`$${(ledgerTotal / 12).toFixed(0)}`}
+                  centerSub="per month"
+                />
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <DonutLegend
+                    segments={categoryNodes}
+                    formatValue={(v) => `$${v.toFixed(0)}/mo`}
+                  />
+                </View>
+              </View>
             </Card>
           </>
         ) : null}
@@ -76,17 +84,31 @@ export default function LedgerScreen() {
         <SectionLabel>30-day cash flow vs payday</SectionLabel>
         <Card>
           <View style={styles.calStrip}>
-            {cashflow.map((bar, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.calBar,
-                  { height: `${bar.h * 100}%` },
-                  bar.type === 'deduct' && { backgroundColor: colors.coral },
-                  bar.type === 'payday' && { backgroundColor: colors.jade },
-                ]}
-              />
-            ))}
+            {cashflow.map((bar, i) => {
+              const isDeduct = bar.type === 'deduct';
+              const barH = Math.max(bar.h * 40, bar.type ? 5 : 3);
+              return (
+                <View key={i} style={styles.calCol}>
+                  <View style={styles.calUpperHalf}>
+                    {!isDeduct ? (
+                      <View
+                        style={[
+                          styles.calBarUp,
+                          { height: barH },
+                          bar.type === 'payday' && { backgroundColor: colors.jade },
+                        ]}
+                      />
+                    ) : null}
+                  </View>
+                  <View style={styles.calBaseline} />
+                  <View style={styles.calLowerHalf}>
+                    {isDeduct ? (
+                      <View style={[styles.calBarDown, { height: barH, backgroundColor: colors.coral }]} />
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
           </View>
           <View style={styles.calLegend}>
             <View style={styles.legendItem}>
@@ -172,12 +194,24 @@ const styles = StyleSheet.create({
   scroll: { padding: 18, paddingBottom: 100 },
   greet: { ...type.h1, color: colors.ink, marginTop: 4 },
   headline: { borderRadius: radius.lg, padding: 18, marginTop: 14 },
-  sankeyCard: { alignItems: 'center', paddingVertical: 14 },
+  donutRow: { flexDirection: 'row', alignItems: 'center' },
   headlineLbl: { ...type.micro, color: 'rgba(255,255,255,0.6)' },
   headlineBig: { ...type.display, color: '#fff', marginTop: 4 },
   headlineSub: { ...type.caption, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
-  calStrip: { flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 44 },
-  calBar: { flex: 1, backgroundColor: colors.line, borderRadius: 3, minHeight: 4 },
+  calStrip: { flexDirection: 'row', gap: 3, height: 88 },
+  calCol: { flex: 1, height: '100%' },
+  calUpperHalf: { height: 40, justifyContent: 'flex-end' },
+  calLowerHalf: { height: 40, justifyContent: 'flex-start' },
+  calBaseline: { height: 1, backgroundColor: colors.line },
+  calBarUp: {
+    backgroundColor: colors.line,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+  },
+  calBarDown: {
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
   calLegend: { flexDirection: 'row', gap: 16, marginTop: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 2 },
