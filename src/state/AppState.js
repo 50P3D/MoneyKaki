@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useMemo } from 'react';
+import React, { createContext, useContext, useReducer, useMemo, useRef, useEffect } from 'react';
 import { colors } from '../theme/tokens';
+import { apiCreateGoal, apiAddContribution } from './api';
 
 // Single shared state tree for the whole app.
 //
@@ -32,6 +33,7 @@ function makeProfile({
   gems,
   freezesLeft,
   charges,
+  backendUserId,
 }) {
   return {
     id,
@@ -42,13 +44,20 @@ function makeProfile({
     statusLabel,
     gradient,
     accent,
-    goals,
+    // Every goal starts with backendGoalId: null — it only gets a real
+    // Postgres row (and this flips) once the first contribution to it
+    // syncs successfully. See api.js / the CONTRIBUTE background sync below.
+    goals: goals.map((g) => ({ backendGoalId: null, ...g })),
     activeGoalId,
     streak,
     streakStatus,
     gems,
     freezesLeft,
     ledger: { charges },
+    // Which seeded backend user (apps/api/prisma/seed.ts) this persona's
+    // writes go against — keeps Wei Jie's and Aisyah's goals from
+    // colliding on the same account now that there's no auth yet.
+    backendUserId,
   };
 }
 
@@ -62,6 +71,7 @@ const PROFILE_PRESETS = {
     statusLabel: 'On track',
     gradient: [colors.jade, colors.jadeDark],
     accent: colors.jade,
+    backendUserId: 'demo-weijie',
     goals: [
       {
         id: 'bali',
@@ -104,6 +114,7 @@ const PROFILE_PRESETS = {
     statusLabel: 'Getting by',
     gradient: [colors.amber, colors.amberDark],
     accent: colors.amber,
+    backendUserId: 'demo-user',
     goals: [
       {
         id: 'emergency',
@@ -180,6 +191,24 @@ function reducer(state, action) {
         : `+$${amount} saved — streak now ${newStreak} days 🔥`;
       return withToast(nextState, message);
     }
+    case 'SET_BACKEND_GOAL_ID': {
+      // Patches in the real Postgres id for a goal once it first syncs.
+      // Searches every profile (not just the active one) since the app
+      // may have switched personas while the background sync was in flight.
+      const { goalId, backendGoalId } = action;
+      const profiles = { ...state.profiles };
+      for (const pid of Object.keys(profiles)) {
+        const p = profiles[pid];
+        if (p.goals.some((g) => g.id === goalId)) {
+          profiles[pid] = {
+            ...p,
+            goals: p.goals.map((g) => (g.id === goalId ? { ...g, backendGoalId } : g)),
+          };
+          break;
+        }
+      }
+      return { ...state, profiles };
+    }
     case 'USE_FREEZE': {
       const profile = state.profiles[state.activeProfileId];
       if (profile.freezesLeft <= 0) return withToast(state, 'No freezes left this period — they refresh every 2 months.');
@@ -240,6 +269,7 @@ function reducer(state, action) {
         target,
         daysLeft: daysLeft || 30,
         suggested,
+        backendGoalId: null,
         checkpoints: [0.25, 0.5, 0.75, 1].map((f, i) => ({
           label: `Checkpoint ${i + 1}`,
           amount: Math.round(target * f),
@@ -300,14 +330,50 @@ function reducer(state, action) {
   }
 }
 
+// Best-effort background sync for a single contribution: lazily creates
+// the goal on the real backend the first time it's ever contributed to
+// (nothing needs to exist there beforehand — the demo personas' preset
+// goals are entirely local until this fires), then logs the contribution
+// against it. Never throws — a backend that isn't running just means the
+// goal stays local-only (`backendGoalId` stays null); see api.js.
+async function syncContributionInBackground({ getState, dispatch, goalId, amount }) {
+  const state = getState();
+  const profile = Object.values(state.profiles).find((p) => p.goals.some((g) => g.id === goalId));
+  const goal = profile?.goals.find((g) => g.id === goalId);
+  if (!profile || !goal) return;
+
+  let backendGoalId = goal.backendGoalId;
+  if (!backendGoalId) {
+    const deadline = new Date(Date.now() + Math.max(goal.daysLeft, 1) * 86400000).toISOString();
+    const created = await apiCreateGoal({
+      userId: profile.backendUserId,
+      name: goal.title,
+      targetAmount: goal.target,
+      deadline,
+    });
+    if (!created.ok) return;
+    backendGoalId = created.data.id;
+    dispatch({ type: 'SET_BACKEND_GOAL_ID', goalId, backendGoalId });
+  }
+
+  await apiAddContribution(backendGoalId, { userId: profile.backendUserId, amount });
+}
+
 const AppStateContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const actions = useMemo(
     () => ({
-      contribute: (goalId, amount) => dispatch({ type: 'CONTRIBUTE', goalId, amount }),
+      contribute: (goalId, amount) => {
+        dispatch({ type: 'CONTRIBUTE', goalId, amount });
+        syncContributionInBackground({ getState: () => stateRef.current, dispatch, goalId, amount });
+      },
       applyFreeze: () => dispatch({ type: 'USE_FREEZE' }),
       cancelCharge: (chargeId, redirectGoalId) =>
         dispatch({ type: 'CANCEL_CHARGE', chargeId, redirectGoalId }),

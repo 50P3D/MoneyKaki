@@ -147,6 +147,12 @@ export default function GoalDetailScreen({ route, navigation }) {
         />
         <PrimaryButton title="Confirm by 23:59" onPress={handleConfirm} disabled={!Number(amount)} color={profile.accent} />
 
+        <Text style={styles.syncLine}>
+          {goal.backendGoalId
+            ? '☁️ Synced to the live backend (real Postgres row)'
+            : '📱 Local only — syncs to the real backend on your next contribution'}
+        </Text>
+
         <SectionLabel>Sub-goal checkpoints</SectionLabel>
         <Card style={{ paddingVertical: 4 }}>
           {goal.checkpoints.map((c, i) => {
@@ -217,6 +223,7 @@ const styles = StyleSheet.create({
   statNum: { ...type.h2, color: colors.ink },
   statLbl: { ...type.micro, color: colors.textDim, marginTop: 2, fontWeight: '500' },
   freezeExhausted: { ...type.caption, color: colors.textDim, textAlign: 'center', marginTop: 12 },
+  syncLine: { ...type.micro, color: colors.textDim, textAlign: 'center', marginTop: 10 },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',

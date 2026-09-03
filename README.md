@@ -93,6 +93,41 @@ for every chart (progress rings, donuts, the Sankey — no charting library),
 and the RN `Animated`/`Linking` APIs for animation and outbound links. No
 new dependencies were added beyond what Expo ships with by default.
 
+## Real backend, wired up
+
+The proposal's Section 4 architecture calls for a real Goal & Streak
+service behind this app — that service now exists (a separate repo, a
+NestJS + Prisma API against a live Postgres/Neon database), and this app
+talks to it for real, not just as a "next steps" bullet point.
+
+- **What's real:** every contribution (`contribute()` in
+  `src/state/AppState.js`, via `src/state/api.js`) is sent to the
+  backend's `POST /api/goals/:id/contributions` in the background, after
+  the UI updates instantly off local state. The first time a given goal
+  is ever contributed to, it's lazily created on the backend first (`POST
+  /api/goals`) — none of the demo personas' preset goals need to exist
+  there ahead of time. Wei Jie and Aisyah write to two separate seeded
+  backend users (`demo-weijie` / `demo-user`) so their goals don't collide
+  on the same account now that there's no auth yet.
+- **It's demo-safe by design:** the sync is fire-and-forget with a 4s
+  timeout. If the backend isn't running, every write just stays local —
+  nothing blocks, nothing crashes, nothing shows an error. Goal Detail has
+  a small status line under the contribution button ("☁️ Synced to the
+  live backend" vs "📱 Local only") so you can actually see it flip live
+  once the backend picks up a contribution.
+- **What's still local-only:** Ledger, Kakis/Social, gamification (gems,
+  freezes), and the CPF snapshot — the backend's own README labels those
+  modules as scaffolding with no logic yet, so there's nothing real to
+  sync them to.
+
+**To see it live:** run the backend from its own repo (`pnpm start:dev`
+inside `apps/api`, per its README — you'll need a Postgres connection
+string, Neon or local Docker, and to run its Prisma migration + seed
+once). Then just use this app as normal; `src/state/api.js` defaults to
+`http://localhost:3000` (right for a simulator on the same machine — swap
+in your machine's LAN IP at the top of that file if you're on a physical
+phone in Expo Go).
+
 ## Financial-literacy content, done responsibly
 
 As a third-party app, MoneyKaki doesn't compute or report anyone's actual
