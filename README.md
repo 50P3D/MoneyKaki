@@ -16,6 +16,16 @@ screen actually does something. It's frontend-only for now: see
 [Known gaps](#known-gaps--deliberately-deferred) for what's simulated vs.
 what needs a backend.
 
+## Screenshots
+
+<table>
+<tr>
+<td width="33%"><img src="docs/screenshots/home-weijie.png" alt="Home screen, Wei Jie persona — on track, green theme" /><br/><sub><b>Home</b> — Wei Jie (on track)</sub></td>
+</tr>
+</table>
+
+*More screens on the way — Ledger's Sankey view, the Kakis tab, and Aisyah's amber "getting by" theme.*
+
 ## Quick start
 
 Requires Node 18+ and the [Expo Go](https://expo.dev/go) app on your phone
