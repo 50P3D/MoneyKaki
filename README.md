@@ -164,6 +164,49 @@ against the CPF Board pages above rather than guessing.
   stand-in AI Nudge Service (`src/state/nudges.js`) — a local template
   generator today, shaped to swap in a real Claude API call later.
 
+## Future ambitions (from the proposal)
+
+What's built so far — this app plus the [`moneykakiGroup`](#real-backend-wired-up)
+backend — is Phase 1 of a four-phase plan the proposal lays out, and a
+first, honest step toward its longer-term architecture. Worth stating
+plainly what's still ahead, rather than letting the working demo imply
+more than it is:
+
+- **The backend becomes six services, not one.** The proposal's target
+  architecture is independently deployable microservices — Goal & Streak,
+  Commitment Ledger, Social & Accountability, Notification, Gamification,
+  and AI Nudge — behind an API gateway, each scaling on its own. Today
+  it's a single NestJS app with those same six domains already split into
+  separate modules (see `apps/api/src/`), with only Goal & Streak wired to
+  real logic — the module boundaries are already where the proposal's
+  service boundaries would eventually be cut.
+- **Real bank/card feeds.** The Commitment Ledger is manual-entry only
+  right now; the proposal calls for open-banking/statement-aggregation
+  coverage across major Singapore issuers and BNPL providers so it
+  auto-populates, with screenshot-plus-OCR (e.g. AWS Textract) as the
+  fallback for institutions without API access.
+- **Employer/payroll partnerships** for auto-save-on-payday as a direct
+  deduction option, and deeper CPF-aware guidance for gig workers under
+  the Platform Workers Act — building on the illustrative CPF snapshot
+  that exists today.
+- **A deeper AI financial coach** — cash-flow forecasting a week ahead,
+  insurance-renewal renegotiation prompts, and spending-pattern insights —
+  layered on top of today's template-based nudge copy (`src/state/nudges.js`)
+  once it's swapped for a real AI Nudge Service call.
+- **A family/guardian view** of the accountability-partner feature, for
+  students and younger first-jobbers building savings habits under
+  parental visibility with consent.
+- **B2B / white-label**: offering the Commitment Ledger diagnostic to
+  banks and fintechs as an embedded feature, plus marketplace
+  partnerships (insurance switching, subscription bundles) surfaced
+  directly from ledger insights.
+- **Scale-out infrastructure**: event-driven processing (Kafka/SQS)
+  decoupling notification volume from the core app, and cloud-native
+  containerised deployment for autoscaling and eventual multi-region
+  rollout beyond Singapore into other Southeast Asian gig/BNPL markets.
+  The gamification schema (gems, freezes, pots) is already deliberately
+  generic so new power-ups slot in without a data-model rework.
+
 ## Known gaps / deliberately deferred
 
 - **No persistence yet** — state is in-memory and resets on reload.
