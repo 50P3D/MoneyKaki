@@ -10,11 +10,9 @@ Steps to go from the project zip to a running app on your phone.
   - Android: https://play.google.com/store/apps/details?id=host.exp.exponent
   - Keep this app updated — Expo Go only supports the single latest SDK version at a time, so an outdated app or an outdated project will refuse to connect.
 
-## 2. Extract and install
+## 2. Install
 
 ```bash
-# unzip the project, then:
-cd moneykaki-app
 npm install
 ```
 
@@ -52,11 +50,6 @@ npx expo install --fix
 npx expo install babel-preset-expo
 ```
 
-**`git add -A` fails with "Filename too long" (Windows)**
-`node_modules` got tracked by git. Make sure a `.gitignore` with `node_modules/` exists in every folder that has its own `node_modules` (check the repo root too, not just the project folder), then:
-```bash
-git rm -r --cached node_modules
-```
 
 **`eas` command not recognized**
 Either install it globally (`npm install -g eas-cli`) or always run it via `npx eas-cli@latest <command>`, from inside the project folder (the one with `app.json`/`package.json` for the app — not a parent folder).
