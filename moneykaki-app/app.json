@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "MoneyKaki",
+    "slug": "moneykaki",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "sg.megabite.moneykaki",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "sg.megabite.moneykaki"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "aff8b075-f5bf-4936-b8c0-424ef32c42a5"
+      }
+    }
+  }
+}
